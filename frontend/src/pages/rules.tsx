@@ -401,8 +401,8 @@ function RulePacksDialog({ open, onClose }: { open: boolean; onClose: () => void
   )
 }
 
-function RuleDialog({
-  open, onClose, rule, categories, accounts, payees, onSave, loading,
+export function RuleDialog({
+  open, onClose, rule, categories, accounts, payees, onSave, loading, initialValues,
 }: {
   open: boolean
   onClose: () => void
@@ -412,18 +412,23 @@ function RuleDialog({
   payees: Payee[]
   onSave: (data: Partial<Rule>) => void
   loading: boolean
+  initialValues?: Partial<Rule>
 }) {
   const { t } = useTranslation()
-  const [name, setName] = useState(rule?.name ?? '')
-  const [conditionsOp, setConditionsOp] = useState<'and' | 'or'>(rule?.conditions_op ?? 'and')
+  const [name, setName] = useState(rule?.name ?? initialValues?.name ?? '')
+  const [conditionsOp, setConditionsOp] = useState<'and' | 'or'>(rule?.conditions_op ?? initialValues?.conditions_op ?? 'and')
   const [conditions, setConditions] = useState<RuleCondition[]>(
-    rule?.conditions?.length ? rule.conditions as RuleCondition[] : [{ field: 'description', op: 'contains', value: '' }]
+    rule?.conditions?.length ? rule.conditions as RuleCondition[] :
+    initialValues?.conditions?.length ? initialValues.conditions as RuleCondition[] :
+    [{ field: 'description', op: 'contains', value: '' }]
   )
   const [actions, setActions] = useState<RuleAction[]>(
-    rule?.actions?.length ? rule.actions as RuleAction[] : [{ op: 'set_category', value: '' }]
+    rule?.actions?.length ? rule.actions as RuleAction[] :
+    initialValues?.actions?.length ? initialValues.actions as RuleAction[] :
+    [{ op: 'set_category', value: '' }]
   )
-  const [priority, setPriority] = useState(rule?.priority ?? 0)
-  const [isActive, setIsActive] = useState(rule?.is_active ?? true)
+  const [priority, setPriority] = useState(rule?.priority ?? initialValues?.priority ?? 0)
+  const [isActive, setIsActive] = useState(rule?.is_active ?? initialValues?.is_active ?? true)
 
   const selectClass = 'border border-border rounded-lg px-2 py-1.5 text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
 

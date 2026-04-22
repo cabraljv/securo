@@ -225,6 +225,7 @@
     "transferTooltip": "Transfers are excluded from report and dashboard totals",
     "installmentTooltip": "Installment plan — {{count}} charges totaling {{total}}",
     "linkAsTransfer": "Link as transfer",
+    "createRule": "Create rule",
     "linkTransferTitle": "Link as transfer",
     "linkTransferDescription": "Mark these two transactions as a single inter-account transfer. They will be excluded from spending and income reports.",
     "linkTransferSelectTwo": "Select exactly 2 transactions to link them",

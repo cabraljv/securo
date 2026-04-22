@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { transactions, categories as categoriesApi, accounts as accountsApi, recurring, payees as payeesApi, admin } from '@/lib/api'
+import { transactions, categories as categoriesApi, accounts as accountsApi, recurring, payees as payeesApi, admin, rules as rulesApi } from '@/lib/api'
 import { invalidateFinancialQueries } from '@/lib/invalidate-queries'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -15,14 +15,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AlertTriangle, ArrowLeftRight, Check, Download, HelpCircle, Info, Paperclip, X } from 'lucide-react'
-import type { Transaction } from '@/types'
+import { AlertTriangle, ArrowLeftRight, Check, Download, HelpCircle, Info, Paperclip, Shield, X } from 'lucide-react'
+import type { Transaction, Rule } from '@/types'
 import { PageHeader } from '@/components/page-header'
 import { CategoryIcon } from '@/components/category-icon'
 import { TransactionDialog, extractApiError, type SaveAction } from '@/components/transaction-dialog'
 import { TransferDialog } from '@/components/transfer-dialog'
 import { LinkTransferDialog } from '@/components/link-transfer-dialog'
 import { TransactionsFilterBar } from '@/components/transactions-filter-bar'
+import { RuleDialog } from '@/pages/rules'
 import { usePrivacyMode } from '@/hooks/use-privacy-mode'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -66,6 +67,8 @@ export default function TransactionsPage() {
   const [linkTransferDialogOpen, setLinkTransferDialogOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkCategory, setBulkCategory] = useState<string>('')
+  const [createRuleDialogOpen, setCreateRuleDialogOpen] = useState(false)
+  const [ruleInitialValues, setRuleInitialValues] = useState<Partial<Rule> | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const highlightId = searchParams.get('highlight')
   const highlightedRowRef = useRef<HTMLTableRowElement | null>(null)
@@ -273,6 +276,24 @@ export default function TransactionsPage() {
     },
     onError: (error) => {
       toast.error(extractApiError(error))
+    },
+  })
+
+  const createRuleMutation = useMutation({
+    mutationFn: (data: Omit<Rule, 'id' | 'user_id'>) => rulesApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] })
+      setCreateRuleDialogOpen(false)
+      setRuleInitialValues(null)
+      toast.success(t('rules.created'))
+    },
+    onError: (error: unknown) => {
+      const err = error as { response?: { status?: number } }
+      if (err?.response?.status === 409) {
+        toast.error(t('rules.duplicateName'))
+      } else {
+        toast.error(t('common.error'))
+      }
     },
   })
 
@@ -661,6 +682,29 @@ export default function TransactionsPage() {
               <ArrowLeftRight size={14} className="mr-1" />
               {t('transactions.linkAsTransfer')}
             </Button>
+            {selectedIds.size === 1 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const tx = filteredItems?.find(t => selectedIds.has(t.id))
+                  if (!tx) return
+                  setRuleInitialValues({
+                    name: tx.description,
+                    conditions: [{ field: 'description', op: 'contains', value: tx.description }],
+                    conditions_op: 'and',
+                    actions: [{ op: 'set_category', value: '' }],
+                    priority: 0,
+                    is_active: true,
+                  })
+                  setCreateRuleDialogOpen(true)
+                }}
+                className="shrink-0"
+              >
+                <Shield size={14} className="mr-1" />
+                {t('transactions.createRule')}
+              </Button>
+            )}
             <button
               onClick={() => { setSelectedIds(new Set()); setBulkCategory('') }}
               className="text-muted-foreground hover:text-foreground p-1 shrink-0"
@@ -683,6 +727,20 @@ export default function TransactionsPage() {
           linkTransferMutation.mutate([debitId, creditId])
         }}
         loading={linkTransferMutation.isPending}
+      />
+
+      {/* Create Rule Dialog */}
+      <RuleDialog
+        key={createRuleDialogOpen ? 'create-from-tx' : 'closed'}
+        open={createRuleDialogOpen}
+        onClose={() => { setCreateRuleDialogOpen(false); setRuleInitialValues(null) }}
+        rule={null}
+        initialValues={ruleInitialValues ?? undefined}
+        categories={categoriesList ?? []}
+        accounts={accountsList ?? []}
+        payees={payeesList ?? []}
+        onSave={(data) => createRuleMutation.mutate(data as Omit<Rule, 'id' | 'user_id'>)}
+        loading={createRuleMutation.isPending}
       />
 
       {/* Transfer Dialog */}
